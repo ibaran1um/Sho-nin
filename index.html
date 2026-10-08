@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>承認の儀</title>
+<meta name="description" content="60秒間、流れてくる書類にひたすらハンコを押す仕事。変な書類を承認すると会社が変になる。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=Yuji+Syuku&display=swap" rel="stylesheet">
+<style>
+:root{
+  --wall:#E8E1CF; --wall-2:#DED5BF; --desk:#2F4A3B; --desk-2:#27402F;
+  --paper:#FCFAF3; --ink:#20242C; --sub:#5B5E66; --rule:#CFC7B2;
+  --shu:#D0312A; --shu-d:#9E201A; --gold:#B8892C; --navy:#24344D; --ok:#2F7D4F;
+  --body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic","Meiryo",sans-serif;
+  --brush:"Yuji Syuku","Hiragino Mincho ProN","Yu Mincho",serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;font-family:var(--body);color:var(--ink);background:var(--wall);
+  -webkit-user-select:none;user-select:none;touch-action:manipulation}
+.hidden{display:none!important}
+button{font:inherit;cursor:pointer}
+
+/* ---------- 背景（壁と机） ---------- */
+#wall{position:fixed;inset:0;background:
+  repeating-linear-gradient(90deg,var(--wall) 0 118px,var(--wall-2) 118px 120px);z-index:0;overflow:hidden}
+#deskbg{position:fixed;left:0;right:0;bottom:0;height:42%;background:linear-gradient(var(--desk),var(--desk-2));
+  border-top:6px solid #6B4F35;z-index:1}
+#clock{position:absolute;right:6%;top:9%;width:64px;height:64px;border-radius:50%;background:#fff;border:4px solid #4a4a4a;opacity:.85}
+#clock::before,#clock::after{content:"";position:absolute;left:50%;bottom:50%;width:3px;background:#333;transform-origin:bottom center}
+#clock::before{height:22px;transform:translateX(-50%) rotate(40deg)}
+#clock::after{height:16px;transform:translateX(-50%) rotate(-70deg)}
+.note{position:absolute;width:170px;background:#fff;padding:10px 12px 12px;font-size:13px;line-height:1.45;
+  box-shadow:0 2px 0 rgba(0,0,0,.08),0 6px 14px rgba(0,0,0,.12);animation:pin .35s cubic-bezier(.2,1.6,.4,1) both}
+.note b{display:block;font-size:11px;color:var(--shu);letter-spacing:.1em;border-bottom:1px solid var(--rule);margin-bottom:4px;padding-bottom:3px}
+.note.pres b{color:var(--gold)}
+.note::before{content:"";position:absolute;top:-6px;left:50%;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:var(--shu);box-shadow:0 2px 2px rgba(0,0,0,.3)}
+@keyframes pin{from{transform:var(--r) scale(1.6);opacity:0}to{transform:var(--r) scale(1);opacity:1}}
+
+/* 会社が変になる演出 */
+#sea{position:fixed;left:-10%;right:-10%;bottom:0;height:0;z-index:6;pointer-events:none;transition:height .8s ease;
+  background:linear-gradient(rgba(64,150,200,.45),rgba(30,90,150,.6));border-top:3px solid rgba(255,255,255,.6)}
+#sea::before{content:"";position:absolute;left:0;right:0;top:-10px;height:14px;
+  background:radial-gradient(circle at 20px 14px,rgba(64,150,200,.45) 12px,transparent 13px) 0 0/40px 14px repeat-x;animation:wave 2s linear infinite}
+@keyframes wave{to{background-position:40px 0}}
+#crease{position:fixed;inset:0;z-index:7;pointer-events:none;opacity:0;transition:opacity .6s;
+  background:linear-gradient(90deg,transparent 49.4%,rgba(0,0,0,.18) 49.8%,rgba(255,255,255,.5) 50.2%,transparent 50.6%),
+             linear-gradient(90deg,rgba(0,0,0,.08),transparent 50%,rgba(0,0,0,.08))}
+body.fold #crease{opacity:1}
+body.fold #wall{transform:perspective(900px) rotateY(4deg)}
+body.disco #wall{animation:disco 1.2s linear infinite}
+@keyframes disco{to{filter:hue-rotate(360deg) saturate(2.2)}}
+body.disco #wall::after{content:"";position:absolute;inset:0;background:
+  radial-gradient(circle at 20% 30%,rgba(255,255,255,.5) 0 2%,transparent 3%),radial-gradient(circle at 70% 20%,rgba(255,240,120,.5) 0 2%,transparent 3%),
+  radial-gradient(circle at 50% 60%,rgba(120,220,255,.5) 0 2%,transparent 3%);animation:spots 1.6s linear infinite}
+@keyframes spots{50%{transform:translate(40px,20px)}}
+body.float .note{animation:pin .35s both,bob 2.6s ease-in-out infinite alternate}
+@keyframes bob{to{translate:0 -18px}}
+body.float #stack{animation:bob2 3s ease-in-out infinite alternate}
+@keyframes bob2{to{translate:0 -6px}}
+#pigeon{position:fixed;top:13%;left:-90px;width:70px;height:60px;z-index:2;pointer-events:none;display:none}
+body.pigeon #pigeon{display:block;animation:walk 9s linear infinite}
+@keyframes walk{0%{left:-90px}100%{left:110%}}
+#pigeon svg{animation:peck .45s ease-in-out infinite alternate;transform-origin:50% 90%}
+@keyframes peck{to{transform:rotate(-6deg) translateY(-2px)}}
+
+/* ---------- HUD ---------- */
+#hud{position:fixed;left:0;right:0;top:0;z-index:20;display:flex;gap:8px;align-items:stretch;justify-content:center;
+  padding:max(10px,env(safe-area-inset-top)) 12px 0}
+.chip{background:var(--paper);border:2px solid var(--navy);border-radius:4px;padding:4px 12px;min-width:92px;text-align:center}
+.chip span{display:block;font-size:11px;color:var(--sub);font-weight:700}
+.chip strong{display:block;font-size:24px;line-height:1.1;font-variant-numeric:tabular-nums}
+.chip.hurry{border-color:var(--shu)} .chip.hurry strong{color:var(--shu)}
+#combo strong{color:var(--shu)}
+
+/* ---------- 書類 ---------- */
+#desk{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;
+  padding:84px 16px 112px;touch-action:none}
+#stack{position:relative;width:min(88vw,400px);aspect-ratio:1/1.32;max-height:100%}
+.paper-under{position:absolute;inset:0;background:var(--paper);border-radius:3px;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.paper-under.u1{transform:translate(5px,6px) rotate(1.4deg);filter:brightness(.96)}
+.paper-under.u2{transform:translate(-4px,10px) rotate(-1.2deg);filter:brightness(.92)}
+.doc{position:absolute;inset:0;background:var(--paper);border-radius:3px;padding:6% 7%;
+  box-shadow:0 2px 0 rgba(0,0,0,.05),0 10px 24px rgba(0,0,0,.28);display:flex;flex-direction:column;
+  will-change:transform;cursor:pointer;overflow:hidden}
+.doc.enter{animation:enter .16s ease-out}
+@keyframes enter{from{transform:translateY(40px) scale(.96);opacity:.4}}
+.doc.upside .inner{transform:rotate(180deg)}
+.inner{display:flex;flex-direction:column;height:100%}
+.doc header{display:flex;justify-content:space-between;align-items:baseline;border-bottom:3px double var(--ink);padding-bottom:6px}
+.doc .form{font-size:clamp(20px,6vw,26px);font-weight:700;letter-spacing:.3em}
+.doc .no{font-size:12px;color:var(--sub)}
+.doc .subj{font-size:clamp(18px,5.4vw,23px);font-weight:700;line-height:1.35;margin:14px 0 10px;min-height:2.7em}
+.doc table{width:100%;border-collapse:collapse;font-size:clamp(14px,4vw,16px)}
+.doc th,.doc td{border:1px solid var(--rule);padding:7px 8px;text-align:left;vertical-align:top}
+.doc th{width:28%;background:#F3EFE3;font-weight:700;color:var(--sub);white-space:nowrap}
+.seals{margin-top:auto;display:grid;grid-template-columns:repeat(4,1fr);border:1.5px solid var(--ink)}
+.seal{position:relative;border-left:1px solid var(--ink);aspect-ratio:1/1.05;display:flex;flex-direction:column}
+.seal:first-child{border-left:0}
+.seal>span{font-size:11px;text-align:center;border-bottom:1px solid var(--ink);padding:2px 0;background:#F3EFE3}
+.seal.me>span{background:#FBE3DF;color:var(--shu-d);font-weight:700}
+.mini{position:absolute;left:50%;top:58%;width:52%;aspect-ratio:1;transform:translate(-50%,-50%) rotate(-8deg);border:2px solid var(--shu);border-radius:50%;
+  color:var(--shu);font-family:var(--brush);font-size:clamp(10px,3vw,14px);display:flex;align-items:center;justify-content:center;opacity:.85}
+.pres-stamp{position:absolute;left:50%;top:58%;width:72%;aspect-ratio:1;transform:translate(-50%,-50%) rotate(6deg);border:3px double var(--gold);border-radius:50%;
+  color:var(--gold);font-family:var(--brush);font-size:clamp(12px,3.6vw,17px);line-height:1.05;display:flex;align-items:center;justify-content:center;text-align:center;
+  background:rgba(255,230,160,.35)}
+.doc.pres{box-shadow:0 0 0 3px var(--gold),0 10px 24px rgba(0,0,0,.28)}
+.hanko{position:absolute;width:30%;aspect-ratio:1;border:5px solid var(--shu);border-radius:50%;color:var(--shu);
+  font-family:var(--brush);font-size:clamp(22px,7vw,34px);display:flex;align-items:center;justify-content:center;
+  pointer-events:none;mix-blend-mode:multiply;animation:slam .14s cubic-bezier(.3,1.8,.5,1) both}
+.hanko.ng{border-radius:6px;width:44%;aspect-ratio:auto;padding:4px 0;font-size:clamp(28px,9vw,44px)}
+@keyframes slam{from{transform:translate(-50%,-50%) rotate(var(--r)) scale(1.9);opacity:0}to{transform:translate(-50%,-50%) rotate(var(--r)) scale(1);opacity:.92}}
+.doc.out-up{transition:transform .22s ease-in,opacity .22s;transform:translateY(-120vh) rotate(-4deg)!important}
+.doc.out-l{transition:transform .25s ease-in;transform:translateX(-140vw) rotate(-22deg)!important}
+.doc.out-r{transition:transform .25s ease-in;transform:translateX(140vw) rotate(22deg)!important}
+
+#actions{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;gap:12px;justify-content:center;
+  padding:0 16px max(16px,env(safe-area-inset-bottom))}
+.act{flex:1;max-width:190px;height:64px;border:0;border-radius:6px;font-size:22px;font-weight:700;color:#fff;box-shadow:0 4px 0 rgba(0,0,0,.3)}
+.act:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.3)}
+.act.ng{background:#4A4F59}
+.act.ok{background:var(--shu)}
+.act small{display:block;font-size:11px;font-weight:400;opacity:.8}
+
+/* ---------- 演出テキスト ---------- */
+#banner{position:fixed;left:0;right:0;top:34%;z-index:30;display:flex;justify-content:center;pointer-events:none}
+#banner div{background:var(--navy);color:#fff;font-weight:700;font-size:clamp(17px,4.6vw,22px);line-height:1.5;padding:14px 22px;border-radius:4px;max-width:90vw;text-align:center;
+  box-shadow:0 8px 24px rgba(0,0,0,.35);animation:drop .3s cubic-bezier(.2,1.5,.4,1) both}
+#banner div.big{font-family:var(--brush);font-weight:400;font-size:clamp(48px,14vw,84px);background:transparent;color:var(--shu);
+  box-shadow:none;-webkit-text-stroke:2px #fff;paint-order:stroke fill}
+#banner small{display:block;font-size:.75em;opacity:.8;font-weight:400}
+@keyframes drop{from{transform:translateY(-20px) scale(1.15);opacity:0}}
+#toast{position:fixed;left:50%;top:76px;z-index:25;transform:translateX(-50%);pointer-events:none;white-space:nowrap}
+.tt{font-weight:700;font-size:18px;padding:4px 12px;border-radius:4px;animation:tt .9s ease-out both;text-align:center}
+.tt.good{color:var(--ok)} .tt.bad{background:var(--shu);color:#fff}
+@keyframes tt{0%{opacity:0;transform:translateY(8px)}15%{opacity:1;transform:none}75%{opacity:1}100%{opacity:0;transform:translateY(-10px)}}
+#flash{position:fixed;inset:0;z-index:28;background:var(--shu);opacity:0;pointer-events:none}
+#flash.on{animation:flash .35s ease-out}
+@keyframes flash{from{opacity:.35}to{opacity:0}}
+body.shake #desk{animation:shake .3s}
+@keyframes shake{20%{transform:translateX(-10px)}40%{transform:translateX(9px)}60%{transform:translateX(-6px)}80%{transform:translateX(4px)}}
+
+/* ---------- 画面 ---------- */
+.screen{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;overflow:auto;
+  padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));background:rgba(36,52,77,.35)}
+.sheet{position:relative;width:min(460px,100%);background:var(--paper);padding:28px 24px 24px;border-radius:3px;box-shadow:0 14px 40px rgba(0,0,0,.35);margin:auto}
+.title{padding-right:84px;font-family:var(--brush);font-weight:400;font-size:clamp(44px,13vw,72px);line-height:1;margin:6px 0 8px;letter-spacing:.06em}
+.lead{font-size:15px;color:var(--sub);margin:0 0 16px}
+.bighanko{position:absolute;right:16px;top:14px;width:76px;height:76px;border:5px solid var(--shu);border-radius:50%;color:var(--shu);
+  font-family:var(--brush);font-size:30px;display:flex;align-items:center;justify-content:center;transform:rotate(-12deg);mix-blend-mode:multiply}
+.how{border-top:3px double var(--ink);padding-top:12px;font-size:15px;line-height:1.7}
+.how p{margin:0 0 8px}
+.how .k{display:inline-block;font-weight:700;padding:0 6px;border-radius:3px;color:#fff;font-size:13px}
+.k.ok{background:var(--shu)} .k.ng{background:#4A4F59}
+.btn{width:100%;height:58px;border:0;border-radius:6px;background:var(--shu);color:#fff;font-size:21px;font-weight:700;box-shadow:0 4px 0 var(--shu-d);margin-top:14px}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--shu-d)}
+.btn.sub{background:transparent;color:var(--navy);box-shadow:inset 0 0 0 2px var(--navy);height:48px;font-size:16px;margin-top:10px}
+.btn:focus-visible{outline:3px solid var(--navy);outline-offset:3px}
+.best{text-align:center;font-size:13px;color:var(--sub);margin-top:10px}
+.report h2{padding-right:100px;font-size:24px;letter-spacing:.3em;margin:0 0 4px;border-bottom:3px double var(--ink);padding-bottom:6px}
+.report dl{display:grid;grid-template-columns:1fr auto;margin:44px 0 0;font-size:15px}
+.report dt,.report dd{margin:0;padding:6px 2px;border-bottom:1px solid var(--rule)}
+.report dd{font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.report dd.score{font-size:26px;color:var(--shu)}
+.rank{position:absolute;right:18px;top:16px;min-width:88px;height:88px;padding:0 8px;border:5px double var(--shu);border-radius:50%;color:var(--shu);
+  font-family:var(--brush);font-size:26px;display:flex;align-items:center;justify-content:center;transform:rotate(10deg);mix-blend-mode:multiply;
+  animation:slam2 .45s cubic-bezier(.2,1.6,.4,1) both;background:transparent}
+@keyframes slam2{from{transform:rotate(10deg) scale(2.4);opacity:0}}
+.decided{margin-top:14px;font-size:14px;line-height:1.6}
+.decided h3{font-size:14px;margin:0 0 4px;color:var(--shu)}
+.decided ol{margin:0;padding-left:1.4em}
+.decided .none{color:var(--sub)}
+.newrec{color:var(--shu)}
+
+/* 図鑑 */
+.binder{width:min(760px,100%);padding:22px 18px 18px}
+.zhead{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;border-bottom:3px double var(--ink);padding-bottom:8px}
+.zhead h2{margin:0;font-size:clamp(19px,5.6vw,24px);letter-spacing:.12em;white-space:nowrap}
+.zprog{flex:1;max-width:220px;min-width:100px;text-align:right;font-size:13px;color:var(--sub);font-weight:700}
+.bar{height:8px;background:#E6DFCC;border-radius:4px;margin-top:4px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--shu)}
+.tabs{position:sticky;top:-16px;z-index:2;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:12px 0 6px;background:var(--paper);padding:4px 0}
+.tabs button{border:2px solid var(--navy);background:transparent;color:var(--navy);border-radius:4px;padding:8px 4px;font-weight:700;font-size:14px}
+.tabs button small{display:block;font-size:11px;font-weight:400}
+.tabs button.on{background:var(--navy);color:#fff}
+.zhint{font-size:12px;color:var(--sub);margin:4px 0 10px}
+.zgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.zcard{position:relative;text-align:left;border:1px solid var(--rule);background:#fff;border-radius:3px;padding:8px 8px 36px;min-height:104px;
+  border-top:4px solid var(--navy);box-shadow:0 1px 0 rgba(0,0,0,.05)}
+.zcard[data-cat="SUBTLE"]{border-top-color:var(--gold)}
+.zcard[data-cat="ABSURD"]{border-top-color:var(--shu)}
+.zcard .zno{display:block;font-size:10px;color:var(--sub)}
+.zcard .zform{display:block;font-size:11px;color:var(--sub);font-weight:700}
+.zcard .zsubj{display:block;font-size:13px;font-weight:700;line-height:1.35;margin-top:2px}
+.zcard .zrec{position:absolute;left:8px;right:40px;bottom:8px;font-size:10px;color:var(--sub)}
+.zcard .znew{position:absolute;right:6px;top:6px;font-size:10px;font-weight:700;color:#fff;background:var(--shu);padding:1px 5px;border-radius:2px}
+.zcard .zmark{position:absolute;right:6px;bottom:4px;width:28px;height:28px;border:2px solid var(--shu);border-radius:50%;color:var(--shu);
+  font-family:var(--brush);font-size:11px;display:flex;align-items:center;justify-content:center;transform:rotate(-10deg);opacity:.8}
+.zcard .zmark.gold{border-color:var(--gold);color:var(--gold)}
+.zcard.unk{background:repeating-linear-gradient(45deg,#F4F0E4 0 6px,#EFEADC 6px 12px);cursor:default;color:var(--sub)}
+.zcard.unk .zsubj{color:#B3AB97;letter-spacing:.2em}
+.zreset{display:block;margin:14px auto 0;background:none;border:0;color:var(--sub);font-size:12px;text-decoration:underline}
+.zdetail{width:min(420px,100%);margin:auto}
+#scZDetail{background:rgba(20,30,45,.82);z-index:45}
+#scZDetail .btn.sub{background:var(--paper)}
+.zdoc{position:relative;width:100%;aspect-ratio:1/1.32}
+.zdoc .doc{cursor:default}
+.zinfo{background:var(--paper);margin-top:10px;padding:12px 14px;border-radius:3px;font-size:14px;line-height:1.7}
+.zinfo b{color:var(--shu)}
+.zinfo .muted{color:var(--sub)}
+body.clock #clock::before{animation:rev1 1.2s linear infinite} body.clock #clock::after{animation:rev2 .3s linear infinite}
+@keyframes rev1{to{transform:translateX(-50%) rotate(-320deg)}} @keyframes rev2{to{transform:translateX(-50%) rotate(-430deg)}}
+#frost{position:fixed;inset:0;z-index:7;pointer-events:none;opacity:0;transition:opacity .8s;box-shadow:inset 0 0 140px 40px rgba(205,236,255,.95)}
+body.freeze #frost{opacity:1}
+body.bigstamp .hanko:not(.ng){width:84%;border-width:12px;font-size:clamp(64px,22vw,120px)}
+@media (min-width:900px) and (min-height:700px){ #stack{width:420px} }
+@media (max-height:640px){ #desk{padding:70px 12px 92px} .act{height:54px} }
+@media (prefers-reduced-motion:reduce){ body.disco #wall,body.float .note,body.float #stack,#pigeon,body.pigeon #pigeon{animation:none!important} }
+</style>
+</head>
+<body>
+<div id="wall"><div id="clock"></div></div>
+<div id="deskbg"></div>
+<div id="pigeon" aria-hidden="true"><svg viewBox="0 0 70 60" width="70" height="60">
+  <ellipse cx="34" cy="36" rx="22" ry="14" fill="#8D96A3"/><path d="M14 34 L2 30 L12 40Z" fill="#6E7682"/>
+  <circle cx="52" cy="22" r="9" fill="#8D96A3"/><path d="M50 30 Q56 34 52 38" stroke="#5FA38A" stroke-width="5" fill="none"/>
+  <path d="M60 21 L67 23 L60 25Z" fill="#E0A23A"/><circle cx="54" cy="20" r="1.8" fill="#C0392B"/>
+  <path d="M30 48 L28 57 M38 48 L40 57" stroke="#D96B6B" stroke-width="2.5"/></svg></div>
+
+<div id="hud" class="hidden">
+  <div class="chip" id="timeChip"><span>残り</span><strong id="time">60</strong></div>
+  <div class="chip"><span>成果</span><strong id="score">0</strong></div>
+  <div class="chip" id="combo"><span>連続</span><strong id="comboN">0</strong></div>
+</div>
+<div id="toast"></div>
+
+<main id="desk" class="hidden" aria-label="書類。タップで承認、左右にスワイプで却下">
+  <div id="stack"><div class="paper-under u2"></div><div class="paper-under u1"></div></div>
+</main>
+<div id="actions" class="hidden">
+  <button class="act ng" id="btnNg">却下<small>スワイプ / ←</small></button>
+  <button class="act ok" id="btnOk">承認<small>タップ / Space</small></button>
+</div>
+
+<div id="sea"></div>
+<div id="crease"></div>
+<div id="frost"></div>
+<div id="flash"></div>
+<div id="banner"></div>
+
+<section class="screen" id="scTitle">
+  <div class="sheet">
+    <div class="bighanko">承認</div>
+    <h1 class="title">承認の儀</h1>
+    <p class="lead">60秒間、流れてくる書類にひたすらハンコを押す仕事。</p>
+    <div class="how">
+      <p><span class="k ok">承認</span> 書類をタップ（PCはクリック・Space）</p>
+      <p><span class="k ng">却下</span> 書類を左右にスワイプ（PCはドラッグ・←→）</p>
+      <p>まともな書類は承認、変な書類は却下。変な書類を承認すると、会社がどんどん変になります。</p>
+      <p>まともな書類を却下すると業務が止まって3秒失います。</p>
+    </div>
+    <button class="btn" id="btnStart">出社する</button>
+    <button class="btn sub" id="btnZukan1">ファイリング済を見る</button>
+    <div class="best" id="bestTitle"></div>
+  </div>
+</section>
+
+<section class="screen hidden" id="scZukan">
+  <div class="sheet binder">
+    <div class="zhead">
+      <h2>ファイリング済</h2>
+      <div class="zprog"><span id="zTotal">0 / 0</span><div class="bar"><i id="zBar"></i></div></div>
+    </div>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-cat="NORMAL" class="on">まとも<small id="zc-NORMAL"></small></button>
+      <button role="tab" data-cat="SUBTLE">一見まとも<small id="zc-SUBTLE"></small></button>
+      <button role="tab" data-cat="ABSURD">明らかに変<small id="zc-ABSURD"></small></button>
+    </div>
+    <p class="zhint" id="zHint"></p>
+    <div class="zgrid" id="zGrid"></div>
+    <button class="btn sub" id="btnZBack">閉じる</button>
+    <button class="zreset" id="btnZReset">記録を消す</button>
+  </div>
+</section>
+<section class="screen hidden" id="scZDetail">
+  <div class="zdetail">
+    <div class="zdoc" id="zDoc"></div>
+    <div class="zinfo" id="zInfo"></div>
+    <button class="btn sub" id="btnZDClose">戻る</button>
+  </div>
+</section>
+
+<section class="screen hidden" id="scResult">
+  <div class="sheet report">
+    <div class="rank" id="rank">課長</div>
+    <h2>業務日報</h2>
+    <dl>
+      <dt>本日の成果</dt><dd class="score" id="rScore">0</dd>
+      <dt>処理件数</dt><dd id="rDone">0件</dd>
+      <dt>正しい判断</dt><dd id="rRight">0件</dd>
+      <dt>うっかり承認</dt><dd id="rWA">0件</dd>
+      <dt>うっかり却下</dt><dd id="rWR">0件</dd>
+      <dt>最大連続</dt><dd id="rCombo">0</dd>
+      <dt>新しくファイリング</dt><dd id="rNew">0件</dd>
+      <dt>自己ベスト</dt><dd id="rBest">0</dd>
+    </dl>
+    <div class="decided"><h3>本日付で決定した事項</h3><ol id="rDecided"></ol></div>
+    <button class="btn" id="btnRetry">もう一度出社する</button>
+    <button class="btn sub" id="btnZukan2">ファイリング済を見る</button>
+    <button class="btn sub" id="btnShare">Xで業務報告する</button>
+    <button class="btn sub" id="btnTitle">タイトルに戻る</button>
+  </div>
+</section>
+
+<script src="docs.js"></script>
+<script>
+/* ================= 設定 ================= */
+const CFG={
+  TIME:60,          // 制限時間（秒）
+  PRES_AT:20,       // 社長決裁の書類が出始める時刻（経過秒）
+  UPSIDE_AT:40,     // 逆さまの書類が出始める時刻
+  SUBTLE_AT:12,     // 「一見まともだけど変」な書類が出始める時刻
+  ABSURD_RATE:0.4,  // 変な書類の割合
+  WRONG_REJECT_LOSS:3, // うっかり却下で失う秒数
+  QUICK:1.2,        // 即決ボーナスの判定（秒）
+};
+// 肩書（上から判定）。うっかり承認が多いと鳩になる
+const RANKS=[[22000,'社長'],[16000,'専務'],[11000,'部長'],[7000,'課長'],[3500,'係長'],[0,'平社員']];
+const PIGEON_LIMIT=6;
+
+/* ================= 書類データ ================= */
+const NAMES=['佐藤','鈴木','高橋','伊藤','渡辺','山本','中村','小林','加藤','吉田','山田','松本','井上','木村','林','清水','山口','森'];
+const DEPTS=['総務部','営業一課','営業二課','経理部','人事部','開発部','広報部','購買部'];
+const pick=a=>a[Math.random()*a.length|0];
+const rint=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+function hash(str){ let h=5381; for(let i=0;i<str.length;i++) h=(h*33^str.charCodeAt(i))>>>0; return h.toString(36); }
+// docs.js の1行1枚の書類データを読み込む
+function parseList(txt,cat){
+  const out=[];
+  txt.split('\n').map(l=>l.trim()).filter(l=>l&&!l.startsWith('//')).forEach(line=>{
+    const parts=line.split('|'), d={cat,form:parts[0],subject:parts[1],rows:[],notice:null,effect:null,applicant:null,dept:null};
+    const keyParts=[cat,parts[0],parts[1]];
+    for(const q of parts.slice(2)){
+      if(q[0]==='>'){ d.notice=q.slice(1); continue; }
+      if(q[0]==='@'){ d.effect=q.slice(1); continue; }
+      keyParts.push(q);
+      const i=q.indexOf(':'), k=q.slice(0,i), v=q.slice(i+1);
+      if(k==='申請者'){ const m=v.match(/^(.+?)（(.+)）$/); d.applicant=m?m[1]:v; d.dept=m?m[2]:'不明'; }
+      else d.rows.push([k,v]);
+    }
+    d.id=cat[0]+hash(keyParts.join('|'));
+    d.no=out.length+1;
+    out.push(d);
+  });
+  return out;
+}
+const DOCS={
+  NORMAL:parseList(window.SHONIN_DOCS.NORMAL,'NORMAL'),
+  SUBTLE:parseList(window.SHONIN_DOCS.SUBTLE,'SUBTLE'),
+  ABSURD:parseList(window.SHONIN_DOCS.ABSURD,'ABSURD'),
+};
+const ALL_DOCS=[...DOCS.NORMAL,...DOCS.SUBTLE,...DOCS.ABSURD];
+const CAT_LABEL={NORMAL:'まともな書類',SUBTLE:'一見まとも',ABSURD:'明らかに変'};
+
+/* ================= 図鑑（ファイリング済） ================= */
+let Z={}; try{ Z=JSON.parse(localStorage.getItem('shonin-zukan')||'{}')||{}; }catch(e){ Z={}; }
+// 保存時は保存済みの記録と合わせる（別タブで遊んだ分を消さないため）
+let zCleared=false;
+function saveZ(){ try{
+  if(!zCleared){ const old=JSON.parse(localStorage.getItem('shonin-zukan')||'{}')||{};
+    for(const k in old){ const o=old[k], n=Z[k]; Z[k]=n?{s:Math.max(n.s,o.s),a:Math.max(n.a,o.a),r:Math.max(n.r,o.r),e:n.e||o.e,t:Math.min(n.t,o.t)}:o; } }
+  zCleared=false; localStorage.setItem('shonin-zukan',JSON.stringify(Z)); }catch(e){} }
+function zFound(cat){ return (cat?DOCS[cat]:ALL_DOCS).filter(d=>Z[d.id]).length; }
+
+/* ================= 状態 ================= */
+const S={phase:'title',time:CFG.TIME,elapsed:0,score:0,combo:0,maxCombo:0,done:0,right:0,wrongA:0,wrongR:0,
+  decided:[],effects:new Set(),doc:null,el:null,shownAt:0,serial:0,pauseUntil:0,rules:{},sea:0,decks:{},last:0,newIds:new Set()};
+let best=0; try{best=+localStorage.getItem('shonin-best')||0;}catch(e){}
+const $=id=>document.getElementById(id);
+const now=()=>performance.now()/1000;
+
+// 同じ書類が続かないよう、種類ごとに山札をシャッフルして配る
+function draw(cat){
+  const deck=S.decks[cat]||(S.decks[cat]=[]);
+  if(!deck.length){ deck.push(...DOCS[cat].map((_,i)=>i)); deck.sort(()=>Math.random()-0.5); }
+  const src=DOCS[cat][deck.pop()];
+  return {...src,rows:src.rows.map(r=>[...r])};
+}
+function makeDoc(){
+  const e=S.elapsed;
+  const pres=e>=CFG.PRES_AT && Math.random()<0.24;
+  let d;
+  if(pres) d=draw(Math.random()<0.7?(Math.random()<0.7?'ABSURD':'SUBTLE'):'NORMAL');
+  else if(Math.random()<CFG.ABSURD_RATE) d=draw((e>=CFG.SUBTLE_AT&&Math.random()<0.5)?'SUBTLE':'ABSURD');
+  else d=draw('NORMAL');
+  d.absurd=d.cat!=='NORMAL'; d.pres=pres; d.correct=pres||!d.absurd;
+  d.applicant=d.applicant||pick(NAMES); d.dept=d.dept||pick(DEPTS);
+  if(S.effects.has('tanaka')&&d.applicant!=='鳩') d.applicant='田中';
+  const upRate=(e>=CFG.UPSIDE_AT?0.28:0)+(S.effects.has('upside')?0.3:0);
+  d.upside=Math.random()<upRate;
+  d.serial=String(++S.serial+40).padStart(4,'0');
+  fillName(d,d.applicant);
+  return d;
+}
+function fillName(d,a){
+  if(d.notice) d.notice=d.notice.split('{a}').join(a);
+  d.rows=d.rows.map(r=>[r[0],r[1].split('{a}').join(a)]);
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function renderDoc(d){
+  const el=document.createElement('article');
+  el.className='doc enter'+(d.upside?' upside':'')+(d.pres?' pres':'');
+  el.innerHTML=`<div class="inner">
+    <header><span class="form">${esc(d.form)}</span><span class="no">No.${d.serial}</span></header>
+    <div class="subj">件名　${esc(d.subject)}</div>
+    <table><tr><th>申請者</th><td>${esc(d.applicant)}（${esc(d.dept)}）</td></tr>
+      ${d.rows.map(r=>`<tr><th>${esc(r[0])}</th><td>${esc(r[1])}</td></tr>`).join('')}</table>
+    <div class="seals">
+      <div class="seal"><span>社長</span>${d.pres?'<i class="pres-stamp">社長<br>決裁</i>':''}</div>
+      <div class="seal"><span>部長</span></div>
+      <div class="seal me"><span>課長</span></div>
+      <div class="seal"><span>担当</span><i class="mini">${esc(d.applicant.slice(0,2))}</i></div>
+    </div></div>`;
+  return el;
+}
+function showNext(){
+  S.doc=makeDoc(); S.el=renderDoc(S.doc);
+  $('stack').appendChild(S.el); S.shownAt=now();
+}
+
+/* ================= 音（WebAudio合成） ================= */
+const AU={ctx:null,noise:null};
+function initAudio(){ if(AU.ctx) return; try{ AU.ctx=new (window.AudioContext||window.webkitAudioContext)();
+  const n=AU.ctx.sampleRate*0.4,b=AU.ctx.createBuffer(1,n,AU.ctx.sampleRate),d=b.getChannelData(0); for(let i=0;i<n;i++) d[i]=Math.random()*2-1; AU.noise=b; }catch(e){} }
+function env(g,t,peak,dur){ g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(peak,t+0.008); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); }
+function tone(type,f0,f1,dur,peak=.2,delay=0){ const c=AU.ctx; if(!c) return; const t=c.currentTime+delay;
+  const o=c.createOscillator(),g=c.createGain(); o.type=type; o.frequency.setValueAtTime(f0,t); o.frequency.exponentialRampToValueAtTime(f1,t+dur);
+  o.connect(g); g.connect(c.destination); env(g,t,peak,dur); o.start(t); o.stop(t+dur+.02); }
+function noise(dur,f0,f1,peak=.2,q=1){ const c=AU.ctx; if(!c) return; const t=c.currentTime;
+  const s=c.createBufferSource(); s.buffer=AU.noise; const f=c.createBiquadFilter(); f.type='bandpass'; f.Q.value=q;
+  f.frequency.setValueAtTime(f0,t); f.frequency.exponentialRampToValueAtTime(f1,t+dur);
+  const g=c.createGain(); s.connect(f); f.connect(g); g.connect(c.destination); env(g,t,peak,dur); s.start(t); s.stop(t+dur+.02); }
+const SFX={
+  stamp:()=>{ tone('sine',150,55,0.12,0.5); noise(0.05,900,300,0.35,0.8); },
+  swish:()=>noise(0.18,600,2600,0.22,0.7),
+  good:()=>tone('triangle',1320,1320,0.06,0.07,0.05),
+  bad:()=>{ tone('square',160,150,0.32,0.13); tone('square',120,115,0.32,0.1); },
+  chime:()=>[523,659,784,1047].forEach((f,i)=>tone('sine',f,f,0.35,0.16,i*0.16)),
+  bell:()=>{ tone('sine',880,880,0.9,0.18); tone('sine',1320,1320,0.7,0.08); },
+  coo:()=>{ tone('sine',420,360,0.18,0.15); tone('sine',440,350,0.25,0.15,0.22); },
+  combo:()=>[880,1175].forEach((f,i)=>tone('triangle',f,f,0.1,0.1,i*0.07)),
+};
+
+/* ================= 判定 ================= */
+let busy=false;
+function decide(approve,px,py,dir){
+  if(S.phase!=='play'||busy||!S.doc||now()<S.pauseUntil) return;
+  const d=S.doc, el=S.el, dt=now()-S.shownAt, ok=(approve===d.correct);
+  busy=true; setTimeout(()=>busy=false,90);
+  // 見た目
+  if(approve){
+    const r=el.getBoundingClientRect();
+    const x=px!=null?((px-r.left)/r.width*100):50+rint(-15,15), y=py!=null?((py-r.top)/r.height*100):55+rint(-15,15);
+    addHanko(el,S.effects.has('paw')?'肉球':'承認',x,y,false); SFX.stamp();
+    const box=el.querySelector('.seal.me'); box.insertAdjacentHTML('beforeend','<i class="mini" style="border-width:2.5px">承認</i>');
+    setTimeout(()=>el.classList.add('out-up'),130);
+  }else{
+    addHanko(el,'却下',50,45,true); SFX.swish();
+    el.style.transition='';
+    requestAnimationFrame(()=>el.classList.add(dir<0?'out-l':'out-r'));
+  }
+  setTimeout(()=>el.remove(),420);
+  // 図鑑に記録
+  let rec=Z[d.id]; if(!rec){ rec=Z[d.id]={s:0,a:0,r:0,e:0,t:Date.now()}; S.newIds.add(d.id); }
+  rec.s++; approve?rec.a++:rec.r++;
+  if(approve&&d.absurd) rec.e=1;
+  // 得点と結果
+  S.done++;
+  if(ok){
+    S.right++; S.combo++; S.maxCombo=Math.max(S.maxCombo,S.combo);
+    const mult=1+Math.min(2,Math.floor(S.combo/5)*0.5), quick=dt<CFG.QUICK;
+    const pts=Math.round(100*mult)+(quick?50:0); S.score+=pts;
+    toast(`+${pts}${quick?' 即決':''}`,'good'); SFX.good();
+    if(S.combo>0&&S.combo%10===0){ SFX.combo(); toast(`${S.combo}件連続！`,'good'); }
+    if(approve&&d.absurd&&d.pres) enact(d,true);  // 社長決裁の無茶な案件は通る
+  }else{
+    S.combo=0; SFX.bad(); flash();
+    if(approve){ S.wrongA++; S.score=Math.max(0,S.score-200); toast('うっかり承認 −200','bad'); enact(d,false); }
+    else{ S.wrongR++; S.time=Math.max(0,S.time-CFG.WRONG_REJECT_LOSS); toast(`業務停滞 −${CFG.WRONG_REJECT_LOSS}秒`,'bad'); }
+  }
+  updateHUD();
+  showNext();
+}
+function addHanko(el,txt,x,y,ng){
+  const h=document.createElement('div'); h.className='hanko'+(ng?' ng':''); h.textContent=txt;
+  h.style.left=x+'%'; h.style.top=y+'%'; h.style.setProperty('--r',(ng?-12:rint(-14,14))+'deg'); el.appendChild(h);
+}
+function enact(d,pres){
+  const text=(pres?'【社長決裁】':'')+d.notice;
+  S.decided.push(text);
+  postNote(text,pres);
+  if(d.effect) applyEffect(d.effect);
+}
+function postNote(text,pres){
+  const n=document.createElement('div'); n.className='note'+(pres?' pres':'');
+  const r=rint(-9,9)+'deg'; n.style.setProperty('--r',`rotate(${r})`); n.style.transform=`rotate(${r})`;
+  n.style.left=rint(4,Math.max(8,innerWidth-190))+'px';
+  n.style.top=rint(8,70)+'%';
+  n.innerHTML=`<b>社内通達</b>${esc(text)}`;
+  const wall=$('wall'); wall.appendChild(n);
+  const notes=wall.querySelectorAll('.note'); if(notes.length>16) notes[0].remove();
+}
+function applyEffect(k){
+  S.effects.add(k);
+  if(k==='pigeon'){ document.body.classList.add('pigeon'); SFX.coo(); }
+  if(k==='sea'){ S.sea++; $('sea').style.height=Math.min(42,S.sea*14)+'vh'; }
+  if(k==='fold') document.body.classList.add('fold');
+  if(k==='disco') document.body.classList.add('disco');
+  if(k==='float') document.body.classList.add('float');
+  if(['clock','freeze','bigstamp','paw'].includes(k)) document.body.classList.add(k);
+}
+function toast(t,cls){ const e=document.createElement('div'); e.className='tt '+cls; e.textContent=t; const box=$('toast'); box.innerHTML=''; box.appendChild(e); }
+function flash(){ const f=$('flash'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
+  document.body.classList.remove('shake'); void document.body.offsetWidth; document.body.classList.add('shake'); }
+function banner(html,dur=1.6,big=false){
+  const b=$('banner'); b.innerHTML=`<div class="${big?'big':''}">${html}</div>`;
+  clearTimeout(banner.t); banner.t=setTimeout(()=>b.innerHTML='',dur*1000);
+}
+
+/* ================= 進行 ================= */
+let lastHud={};
+function updateHUD(){
+  const t=Math.ceil(S.time);
+  if(lastHud.t!==t){ $('time').textContent=t; $('timeChip').classList.toggle('hurry',t<=10); lastHud.t=t; }
+  if(lastHud.s!==S.score){ $('score').textContent=S.score.toLocaleString(); lastHud.s=S.score; }
+  if(lastHud.c!==S.combo){ $('comboN').textContent=S.combo; lastHud.c=S.combo; }
+}
+function resetCompany(){
+  document.body.className=''; $('sea').style.height='0'; S.sea=0;
+  $('wall').querySelectorAll('.note').forEach(n=>n.remove());
+  $('stack').querySelectorAll('.doc').forEach(n=>n.remove());
+}
+function startGame(){
+  initAudio(); AU.ctx?.resume?.();
+  resetCompany();
+  Object.assign(S,{phase:'count',time:CFG.TIME,elapsed:0,score:0,combo:0,maxCombo:0,done:0,right:0,wrongA:0,wrongR:0,
+    decided:[],effects:new Set(),doc:null,el:null,serial:0,rules:{},decks:{},pauseUntil:0,newIds:new Set()});
+  lastHud={}; updateHUD();
+  $('scTitle').classList.add('hidden'); $('scResult').classList.add('hidden');
+  ['hud','desk','actions'].forEach(id=>$(id).classList.remove('hidden'));
+  let n=3; banner(n,0.9,true); SFX.good();
+  const iv=setInterval(()=>{ n--; if(n>0){ banner(n,0.9,true); SFX.good(); }
+    else{ clearInterval(iv); banner('始業',0.8,true); SFX.bell(); S.phase='play'; S.last=now(); showNext(); } },800);
+}
+function rule(key,html){
+  if(S.rules[key]) return; S.rules[key]=1;
+  banner(`<small>【社内通達】</small>${html}`,2.2); SFX.chime(); S.pauseUntil=now()+2.2;
+}
+function tick(){
+  requestAnimationFrame(tick);
+  if(S.phase!=='play') return;
+  const t=now(), dt=Math.min(0.1,t-S.last); S.last=t;
+  if(t<S.pauseUntil){ S.shownAt+=dt; return; }  // 通達中は時間を止める
+  S.time-=dt; S.elapsed+=dt;
+  if(S.elapsed>=CFG.PRES_AT) rule('pres','<b style="color:#F2C66B">金の社長印</b>がある書類は<br>どんな内容でも<b>必ず承認</b>すること');
+  if(S.elapsed>=CFG.UPSIDE_AT) rule('upside','書類の向きは<br>各自の裁量とする');
+  if(S.time<=0){ S.time=0; endGame(); }
+  updateHUD();
+}
+requestAnimationFrame(tick);
+function endGame(){
+  S.phase='end'; SFX.bell(); banner('終業',1.3,true);
+  setTimeout(showResult,1400);
+}
+function rankOf(){
+  if(S.wrongA>=PIGEON_LIMIT) return '鳩';
+  return RANKS.find(r=>S.score>=r[0])[1];
+}
+function showResult(){
+  S.phase='result'; saveZ();
+  ['hud','desk','actions'].forEach(id=>$(id).classList.add('hidden'));
+  const isNew=S.score>best; if(isNew){ best=S.score; try{localStorage.setItem('shonin-best',best);}catch(e){} }
+  $('rScore').textContent=S.score.toLocaleString();
+  $('rDone').textContent=S.done+'件'; $('rRight').textContent=S.right+'件';
+  $('rWA').textContent=S.wrongA+'件'; $('rWR').textContent=S.wrongR+'件';
+  $('rCombo').textContent=S.maxCombo;
+  $('rNew').textContent=S.newIds.size+'件';
+  $('btnZukan2').textContent=`ファイリング済を見る（${zFound()}/${ALL_DOCS.length}）`;
+  $('rBest').innerHTML=isNew?`<span class="newrec">新記録</span> ${best.toLocaleString()}`:best.toLocaleString();
+  const rk=$('rank'); rk.textContent=rankOf(); rk.style.animation='none'; void rk.offsetWidth; rk.style.animation='';
+  const ol=$('rDecided'); ol.innerHTML=S.decided.length?S.decided.slice(-8).map(t=>`<li>${esc(t)}</li>`).join(''):'<li class="none">特になし（健全な会社です）</li>';
+  $('scResult').classList.remove('hidden'); $('btnRetry').focus();
+}
+function toTitle(){
+  S.phase='title'; resetCompany();
+  ['hud','desk','actions'].forEach(id=>$(id).classList.add('hidden'));
+  $('scResult').classList.add('hidden'); $('scTitle').classList.remove('hidden'); refreshBest();
+}
+function refreshBest(){ $('bestTitle').textContent=best?`自己ベスト ${best.toLocaleString()}`:''; $('btnZukan1').textContent=`ファイリング済を見る（${zFound()}/${ALL_DOCS.length}）`; }
+refreshBest();
+
+/* ================= 入力 ================= */
+const desk=$('desk');
+let ptr=null;
+desk.addEventListener('pointerdown',e=>{
+  if(S.phase!=='play'||!S.el) return;
+  ptr={id:e.pointerId,x:e.clientX,y:e.clientY,t:now(),el:S.el,drag:false};
+  desk.setPointerCapture(e.pointerId);
+});
+desk.addEventListener('pointermove',e=>{
+  if(!ptr||e.pointerId!==ptr.id||ptr.el!==S.el) return;
+  const dx=e.clientX-ptr.x;
+  if(Math.abs(dx)>10) ptr.drag=true;
+  if(ptr.drag){ ptr.el.classList.remove('enter'); ptr.el.style.transform=`translateX(${dx}px) rotate(${dx/18}deg)`; }
+});
+function endPtr(e){
+  if(!ptr||e.pointerId!==ptr.id) return;
+  const p=ptr; ptr=null;
+  if(p.el!==S.el) return;
+  const dx=e.clientX-p.x, dy=e.clientY-p.y, v=Math.abs(dx)/Math.max(0.05,now()-p.t);
+  if(Math.abs(dx)>70||(Math.abs(dx)>30&&v>500)) decide(false,null,null,Math.sign(dx));
+  else if(!p.drag&&Math.abs(dy)<14&&e.type==='pointerup'){
+    if(p.el.contains(document.elementFromPoint(e.clientX,e.clientY))) decide(true,e.clientX,e.clientY);
+  }
+  else { p.el.style.transition='transform .15s'; p.el.style.transform=''; setTimeout(()=>{ if(p.el) p.el.style.transition=''; },160); }
+}
+desk.addEventListener('pointerup',endPtr);
+desk.addEventListener('pointercancel',endPtr);
+$('btnOk').addEventListener('click',()=>decide(true));
+$('btnNg').addEventListener('click',()=>decide(false,null,null,Math.random()<0.5?-1:1));
+addEventListener('keydown',e=>{
+  if(S.phase!=='play'||e.repeat) return;
+  if(e.code==='Space'||e.code==='Enter'||e.code==='KeyJ'){ e.preventDefault(); decide(true); }
+  if(e.code==='ArrowLeft'||e.code==='KeyF'||e.code==='KeyX'||e.code==='Backspace'){ e.preventDefault(); decide(false,null,null,-1); }
+  if(e.code==='ArrowRight'){ e.preventDefault(); decide(false,null,null,1); }
+});
+$('btnStart').addEventListener('click',startGame);
+addEventListener('pagehide',saveZ);
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) saveZ(); });
+$('btnRetry').addEventListener('click',startGame);
+$('btnTitle').addEventListener('click',toTitle);
+$('btnShare').addEventListener('click',()=>{
+  const top=S.decided[S.decided.length-1];
+  const text=`承認の儀で${S.done}件処理して「${rankOf()}」になりました（成果${S.score.toLocaleString()}）`+(top?`\n本日の決定事項：${top}`:'')+'\n#承認の儀';
+  open('https://twitter.com/intent/tweet?text='+encodeURIComponent(text)+'&url='+encodeURIComponent(location.href.split('?')[0]),'_blank','noopener');
+});
+
+/* ================= 図鑑の画面 ================= */
+let zCat='NORMAL', zFrom='scTitle';
+const HINT={NORMAL:'承認するのが正解の書類です。',SUBTLE:'どこか1か所がおかしい書類です。承認すると何が起きたかも記録されます。',ABSURD:'見るからに変な書類です。承認すると何が起きたかも記録されます。'};
+function openZukan(from){
+  zFrom=from; $(from).classList.add('hidden'); $('scZukan').classList.remove('hidden');
+  renderZukan(); $('scZukan').scrollTop=0;
+}
+function renderZukan(){
+  const all=zFound();
+  $('zTotal').textContent=`${all} / ${ALL_DOCS.length}`;
+  $('zBar').style.width=(all/ALL_DOCS.length*100)+'%';
+  for(const c of Object.keys(DOCS)) $('zc-'+c).textContent=`${zFound(c)} / ${DOCS[c].length}`;
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.cat===zCat));
+  $('zHint').textContent=HINT[zCat];
+  $('zGrid').innerHTML=DOCS[zCat].map(d=>{
+    const r=Z[d.id], no='No.'+String(d.no).padStart(3,'0');
+    if(!r) return `<div class="zcard unk" data-cat="${d.cat}"><span class="zno">${no}</span><span class="zform">未ファイリング</span><span class="zsubj">？？？</span></div>`;
+    const mark=d.cat==='NORMAL'?(r.a?'<i class="zmark">承認</i>':''):(r.e?'<i class="zmark gold">実現</i>':(r.r?'<i class="zmark">却下</i>':''));
+    return `<button class="zcard" data-cat="${d.cat}" data-id="${d.id}">${S.newIds.has(d.id)?'<span class="znew">NEW</span>':''}<span class="zno">${no}</span><span class="zform">${esc(d.form)}</span><span class="zsubj">${esc(d.subject)}</span>${mark}<span class="zrec">承認${r.a}・却下${r.r}</span></button>`;
+  }).join('');
+}
+function openDetail(id){
+  const src=ALL_DOCS.find(d=>d.id===id), r=Z[id]; if(!src||!r) return;
+  const d={...src,rows:src.rows.map(x=>[...x]),applicant:src.applicant||'〇〇',dept:src.dept||'〇〇部',serial:String(src.no).padStart(4,'0'),pres:false,upside:false};
+  fillName(d,d.applicant);
+  const el=renderDoc(d); el.classList.remove('enter');
+  if(r.a) el.querySelector('.seal.me').insertAdjacentHTML('beforeend','<i class="mini">承認</i>');
+  $('zDoc').innerHTML=''; $('zDoc').appendChild(el);
+  const first=new Date(r.t), ds=`${first.getFullYear()}/${first.getMonth()+1}/${first.getDate()}`;
+  let html=`<div>${CAT_LABEL[src.cat]}　No.${String(src.no).padStart(3,'0')}</div><div class="muted">初めて決裁した日：${ds}　／　見た回数：${r.s}回</div><div>承認 <b>${r.a}</b> 回 ・ 却下 <b>${r.r}</b> 回</div>`;
+  if(src.cat!=='NORMAL') html+= r.e?`<div>承認した結果：<b>${esc(src.notice.split('{a}').join('〇〇'))}</b></div>`:`<div class="muted">承認すると何が起きるかは、まだわかりません。</div>`;
+  $('zInfo').innerHTML=html;
+  $('scZDetail').classList.remove('hidden');
+}
+document.querySelector('.tabs').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; zCat=b.dataset.cat; renderZukan(); });
+$('zGrid').addEventListener('click',e=>{ const c=e.target.closest('.zcard[data-id]'); if(c) openDetail(c.dataset.id); });
+$('btnZDClose').addEventListener('click',()=>$('scZDetail').classList.add('hidden'));
+$('scZDetail').addEventListener('click',e=>{ if(e.target.id==='scZDetail') $('scZDetail').classList.add('hidden'); });
+$('btnZBack').addEventListener('click',()=>{ $('scZukan').classList.add('hidden'); $(zFrom).classList.remove('hidden'); refreshBest();
+  if(zFrom==='scResult') $('btnZukan2').textContent=`ファイリング済を見る（${zFound()}/${ALL_DOCS.length}）`; });
+$('btnZukan1').addEventListener('click',()=>openZukan('scTitle'));
+$('btnZukan2').addEventListener('click',()=>openZukan('scResult'));
+$('btnZReset').addEventListener('click',()=>{ if(confirm('ファイリング済の記録をすべて消しますか？')){ Z={}; zCleared=true; saveZ(); S.newIds.clear(); renderZukan(); } });
+refreshBest();
+
+// 動作確認用（ゲームには影響しません）
+window.__shonin={S,CFG,DOCS,ALL_DOCS,get Z(){return Z;},decide,startGame,showResult,applyEffect,enact,openZukan,openDetail};
+</script>
+</body>
+</html>
