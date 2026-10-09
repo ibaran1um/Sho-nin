@@ -173,6 +173,15 @@ body.shake #desk{animation:shake .3s}
 .decided .none{color:var(--sub)}
 .newrec{color:var(--shu)}
 
+/* 共有 */
+.btn.share{background:#111;box-shadow:0 4px 0 #000}
+.btn.share:active{box-shadow:0 1px 0 #000}
+.sharebox{width:min(620px,100%)}
+.sharebox h2{font-size:22px;letter-spacing:.2em;margin:0 0 10px;border-bottom:3px double var(--ink);padding-bottom:6px}
+.shareimg{display:block;width:100%;height:auto;border:1px solid var(--rule);border-radius:3px;background:var(--wall)}
+.smsg{font-size:14px;line-height:1.6;color:var(--sub);margin:10px 0 0;font-weight:700}
+.smsg.ok{color:var(--ok)} .smsg.err{color:var(--shu)}
+.sharebtns .btn{margin-top:10px}
 /* 図鑑 */
 .binder{width:min(760px,100%);padding:22px 18px 18px}
 .zhead{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;border-bottom:3px double var(--ink);padding-bottom:8px}
@@ -291,6 +300,19 @@ body.bigstamp .hanko:not(.ng){width:84%;border-width:12px;font-size:clamp(64px,2
   </div>
 </section>
 
+<section class="screen hidden" id="scShare">
+  <div class="sheet sharebox">
+    <h2>業務報告をポスト</h2>
+    <img class="shareimg" id="shareImg" alt="業務日報の画像">
+    <p class="smsg" id="shareMsg"></p>
+    <div class="sharebtns">
+      <button class="btn" id="btnShareX">画像をコピーしてXを開く</button>
+      <button class="btn sub" id="btnShareSave">画像を保存</button>
+      <button class="btn sub" id="btnShareClose">戻る</button>
+    </div>
+  </div>
+</section>
+
 <section class="screen hidden" id="scResult">
   <div class="sheet report">
     <div class="rank" id="rank">課長</div>
@@ -308,7 +330,7 @@ body.bigstamp .hanko:not(.ng){width:84%;border-width:12px;font-size:clamp(64px,2
     <div class="decided"><h3>本日付で決定した事項</h3><ol id="rDecided"></ol></div>
     <button class="btn" id="btnRetry">もう一度出社する</button>
     <button class="btn sub" id="btnZukan2">ファイリング済を見る</button>
-    <button class="btn sub" id="btnShare">Xで業務報告する</button>
+    <button class="btn share" id="btnShare">Xで業務報告する</button>
     <button class="btn sub" id="btnTitle">タイトルに戻る</button>
   </div>
 </section>
@@ -328,6 +350,8 @@ const CFG={
 // 肩書（上から判定）。うっかり承認が多いと鳩になる
 const RANKS=[[22000,'社長'],[16000,'専務'],[11000,'部長'],[7000,'課長'],[3500,'係長'],[0,'平社員']];
 const PIGEON_LIMIT=6;
+const HASHTAG='ハンコひとつで会社が変わる';   // 投稿につけるハッシュタグ（# は付けない）
+const IS_TOUCH=matchMedia('(pointer: coarse)').matches;
 
 /* ================= 書類データ ================= */
 const NAMES=['佐藤','鈴木','高橋','伊藤','渡辺','山本','中村','小林','加藤','吉田','山田','松本','井上','木村','林','清水','山口','森'];
@@ -578,9 +602,10 @@ function rankOf(){
   return RANKS.find(r=>S.score>=r[0])[1];
 }
 function showResult(){
-  S.phase='result'; saveZ();
+  S.phase='result'; saveZ(); shareBlob=null;
   ['hud','desk','actions'].forEach(id=>$(id).classList.add('hidden'));
   const isNew=S.score>best; if(isNew){ best=S.score; try{localStorage.setItem('shonin-best',best);}catch(e){} }
+  S.isNew=isNew;
   $('rScore').textContent=S.score.toLocaleString();
   $('rDone').textContent=S.done+'件'; $('rRight').textContent=S.right+'件';
   $('rWA').textContent=S.wrongA+'件'; $('rWR').textContent=S.wrongR+'件';
@@ -640,11 +665,107 @@ addEventListener('pagehide',saveZ);
 document.addEventListener('visibilitychange',()=>{ if(document.hidden) saveZ(); });
 $('btnRetry').addEventListener('click',startGame);
 $('btnTitle').addEventListener('click',toTitle);
-$('btnShare').addEventListener('click',()=>{
+/* ================= 業務報告の画像とポスト ================= */
+let shareBlob=null, shareURL=null;
+function wrapText(x,text,maxW){ // 日本語を1文字ずつ折り返す
+  const lines=[]; let line='';
+  for(const ch of text){ if(x.measureText(line+ch).width>maxW&&line){ lines.push(line); line=ch; } else line+=ch; }
+  if(line) lines.push(line); return lines;
+}
+async function makeShareImage(){
+  if(shareBlob) return shareBlob;
+  try{ await document.fonts.ready; }catch(e){}
+  const W=1200,H=675,c=document.createElement('canvas'); c.width=W; c.height=H; const x=c.getContext('2d');
+  const gothic='"BIZ UDPGothic","Hiragino Sans","Yu Gothic","Meiryo",sans-serif', brush='"Yuji Syuku","Hiragino Mincho ProN","Yu Mincho",serif';
+  // 壁と机
+  x.fillStyle='#E8E1CF'; x.fillRect(0,0,W,H);
+  x.fillStyle='#DED5BF'; for(let i=118;i<W;i+=120) x.fillRect(i,0,2,H);
+  x.fillStyle='#6B4F35'; x.fillRect(0,H-96,W,6); x.fillStyle='#2F4A3B'; x.fillRect(0,H-90,W,90);
+  // 業務日報（左の紙）
+  const px=48,py=42,pw=470,ph=590;
+  x.save(); x.translate(px,py); x.rotate(-0.015);
+  x.shadowColor='rgba(0,0,0,.28)'; x.shadowBlur=22; x.shadowOffsetY=8; x.fillStyle='#FCFAF3'; x.fillRect(0,0,pw,ph); x.shadowColor='transparent';
+  x.fillStyle='#20242C'; x.font=`400 56px ${brush}`; x.textBaseline='alphabetic'; x.fillText('承認の儀',32,84);
+  x.font=`700 24px ${gothic}`; x.fillText('業 務 日 報',34,134);
+  x.fillRect(32,148,pw-64,3); x.fillRect(32,154,pw-64,1);
+  const rows=[['本日の成果',S.score.toLocaleString(),1],['処理件数',S.done+'件'],['正しい判断',S.right+'件'],['うっかり承認',S.wrongA+'件'],['最大連続',String(S.maxCombo)]];
+  let y=212;
+  for(const [k,v,big] of rows){
+    x.fillStyle='#5B5E66'; x.font=`700 22px ${gothic}`; x.textAlign='left'; x.fillText(k,34,y);
+    x.fillStyle=big?'#D0312A':'#20242C'; x.font=`700 ${big?44:28}px ${gothic}`; x.textAlign='right'; x.fillText(v,pw-34,y+(big?6:0));
+    y+=big?20:14; x.fillStyle='#CFC7B2'; x.fillRect(32,y,pw-64,1.5); y+=big?56:52;
+  }
+  x.textAlign='left';
+  if(S.isNew){ x.fillStyle='#D0312A'; x.font=`700 22px ${gothic}`; x.fillText('自己ベスト更新',34,y+4); }
+  // 肩書のハンコ
+  const rk=rankOf();
+  x.save(); x.translate(pw-92,82); x.rotate(-0.18); x.globalCompositeOperation='multiply';
+  x.strokeStyle='#D0312A'; x.lineWidth=7; x.beginPath(); x.arc(0,0,64,0,7); x.stroke();
+  x.lineWidth=3; x.beginPath(); x.arc(0,0,54,0,7); x.stroke();
+  x.fillStyle='#D0312A'; x.textAlign='center'; x.textBaseline='middle'; x.font=`400 ${rk.length>2?32:44}px ${brush}`; x.fillText(rk,0,4);
+  x.restore();
+  x.restore();
+  // 社内通達（右の貼り紙）
+  x.fillStyle='#20242C'; x.font=`700 26px ${gothic}`; x.textAlign='left'; x.fillText('本日付で決定した事項',560,82);
+  const none=!S.decided.length;
+  const items=none?['特になし。変な書類は1枚も通しませんでした。健全な会社です。']:S.decided.slice(-4).reverse();
+  const spots=none?[[580,130,-0.02]]:[[560,108,-0.03],[860,124,0.035],[574,318,0.025],[872,330,-0.03]];
+  items.forEach((t,i)=>{
+    const [nx,ny,r]=spots[i], nw=none?540:278, pres=t.startsWith('【社長決裁】'), body=t.replace('【社長決裁】','');
+    x.font=`700 23px ${gothic}`; const lines=wrapText(x,body,nw-36).slice(0,4); const nh=70+lines.length*34;
+    x.save(); x.translate(nx,ny); x.rotate(r);
+    x.shadowColor='rgba(0,0,0,.18)'; x.shadowBlur=12; x.shadowOffsetY=5; x.fillStyle='#FFFFFF'; x.fillRect(0,0,nw,nh); x.shadowColor='transparent';
+    x.fillStyle=pres?'#B8892C':'#D0312A'; x.font=`700 16px ${gothic}`; x.fillText(pres?'社長決裁':'社内通達',18,34);
+    x.fillStyle='#CFC7B2'; x.fillRect(18,44,nw-36,1.5);
+    x.fillStyle='#20242C'; x.font=`700 23px ${gothic}`; lines.forEach((l,j)=>x.fillText(l,18,80+j*34));
+    x.fillStyle='#D0312A'; x.beginPath(); x.arc(nw/2,2,9,0,7); x.fill();
+    x.restore();
+  });
+  // ハッシュタグ
+  x.fillStyle='#FCFAF3'; x.font=`700 30px ${gothic}`; x.textAlign='right'; x.textBaseline='middle'; x.fillText('#'+HASHTAG,W-44,H-44);
+  return shareBlob=await new Promise(r=>c.toBlob(r,'image/png'));
+}
+function shareText(){
   const top=S.decided[S.decided.length-1];
-  const text=`承認の儀で${S.done}件処理して「${rankOf()}」になりました（成果${S.score.toLocaleString()}）`+(top?`\n本日の決定事項：${top}`:'')+'\n#承認の儀';
-  open('https://twitter.com/intent/tweet?text='+encodeURIComponent(text)+'&url='+encodeURIComponent(location.href.split('?')[0]),'_blank','noopener');
+  return `承認の儀で書類を${S.done}件さばいて「${rankOf()}」になりました（成果${S.score.toLocaleString()}）`
+    +(top?`\n本日付で決定：${top.replace('【社長決裁】','')}`:'\n変な書類は1枚も通しませんでした')
+    +`\n#${HASHTAG}`;
+}
+function pageURL(){ return location.href.split(/[?#]/)[0]; }
+function xIntentURL(){ return 'https://x.com/intent/post?text='+encodeURIComponent(shareText())+'&url='+encodeURIComponent(pageURL()); }
+function setShareMsg(t,cls=''){ const e=$('shareMsg'); e.textContent=t; e.className='smsg'+(cls?' '+cls:''); }
+async function startShare(){
+  const btn=$('btnShare'); btn.disabled=true;
+  try{
+    const blob=await makeShareImage();
+    const file=new File([blob],'shonin-no-gi.png',{type:'image/png'});
+    // スマホなど：共有シートで画像ごと渡す
+    if(IS_TOUCH&&navigator.canShare&&navigator.canShare({files:[file]})){
+      try{ await navigator.share({files:[file],text:shareText()+'\n'+pageURL()}); return; }
+      catch(e){ if(e.name==='AbortError') return; }
+    }
+    if(shareURL) URL.revokeObjectURL(shareURL); shareURL=URL.createObjectURL(blob); $('shareImg').src=shareURL;
+    const canCopy=!IS_TOUCH&&!!(navigator.clipboard&&window.ClipboardItem);
+    const xb=$('btnShareX'), sv=$('btnShareSave');
+    if(IS_TOUCH){ xb.parentNode.insertBefore(sv,xb); sv.className='btn'; xb.className='btn sub'; xb.textContent='Xを開く'; }
+    else xb.textContent=canCopy?'画像をコピーしてXを開く':'Xを開く';
+    setShareMsg(IS_TOUCH?'「画像を保存」してから「Xを開く」を押し、ポスト画面で保存した画像を添付してください。'
+      :canCopy?'画像をコピーしてからXのポスト画面を開きます。開いた画面に画像を貼り付け（Ctrl+V / ⌘V）してください。'
+      :'このブラウザでは画像をコピーできません。「画像を保存」してから、Xのポスト画面で画像を添付してください。');
+    $('scResult').classList.add('hidden'); $('scShare').classList.remove('hidden');
+  } finally { btn.disabled=false; }
+}
+$('btnShare').addEventListener('click',startShare);
+$('btnShareX').addEventListener('click',()=>{
+  if(!IS_TOUCH&&navigator.clipboard&&window.ClipboardItem&&shareBlob){
+    navigator.clipboard.write([new ClipboardItem({'image/png':shareBlob})])
+      .then(()=>setShareMsg('画像をコピーしました。開いたXのポスト画面に貼り付け（Ctrl+V / ⌘V）してください。','ok'))
+      .catch(()=>setShareMsg('画像をコピーできませんでした。「画像を保存」してから添付してください。','err'));
+  }
+  window.open(xIntentURL(),'_blank','noopener');
 });
+$('btnShareSave').addEventListener('click',()=>{ if(!shareURL) return; const a=document.createElement('a'); a.href=shareURL; a.download='shonin-no-gi.png'; a.click(); });
+$('btnShareClose').addEventListener('click',()=>{ $('scShare').classList.add('hidden'); $('scResult').classList.remove('hidden'); });
 
 /* ================= 図鑑の画面 ================= */
 let zCat='NORMAL', zFrom='scTitle';
@@ -692,7 +813,7 @@ $('btnZReset').addEventListener('click',()=>{ if(confirm('ファイリング済�
 refreshBest();
 
 // 動作確認用（ゲームには影響しません）
-window.__shonin={S,CFG,DOCS,ALL_DOCS,get Z(){return Z;},decide,startGame,showResult,applyEffect,enact,openZukan,openDetail};
+window.__shonin={makeShareImage,shareText,S,CFG,DOCS,ALL_DOCS,get Z(){return Z;},decide,startGame,showResult,applyEffect,enact,openZukan,openDetail};
 </script>
 </body>
 </html>
